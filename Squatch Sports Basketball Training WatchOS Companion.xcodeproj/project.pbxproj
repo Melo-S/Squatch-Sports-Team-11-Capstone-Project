@@ -91,6 +91,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				ContentView.swift,
+				CourtPosition.swift,
 				Item.swift,
 				SharedWorkout.swift,
 				Squatch_Sports_Basketball_Training_WatchOS_CompanionApp.swift,

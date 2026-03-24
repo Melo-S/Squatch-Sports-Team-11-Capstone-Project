@@ -14,17 +14,32 @@ struct iPhoneWorkoutView: View {
     @State private var makes: Int = 0
     @State private var misses: Int = 0
     @State private var swishes: Int = 0
+    @State private var currentPositionIndex: Int = 0
+    @State private var shotsAtCurrentPosition: Int = 0
+    
+    private let shotsPerPosition: Int = 5 // Configurable shots per spot for drills
 
     private var totalMakes: Int { makes + swishes }
     private var attempts: Int { totalMakes + misses }
 
     private var subtitleText: String {
         if selectedDrill == "Spot Shooting" {
-            return workoutActive ? "5 court spots • track each location" : "5 spots around the arc"
+            let positions = CourtPositions.positions(for: selectedDrill)
+            let totalShots = positions.count * shotsPerPosition
+            if workoutActive {
+                return "Position \(currentPositionIndex + 1) of \(positions.count) • \(attempts)/\(totalShots) shots"
+            }
+            return "25 total shots (5 per spot)"
         } else if selectedDrill == "Free Throws" {
-            return workoutActive ? "Active free throw session" : "25 attempt routine"
+            if workoutActive {
+                return "Shot \(attempts) of \(shotsPerPosition)"
+            }
+            return "5 attempt routine"
         } else if selectedDrill == "Form Shooting" {
-            return workoutActive ? "Active form shooting session" : "Close range mechanics"
+            if workoutActive {
+                return "Shot \(attempts) of \(shotsPerPosition)"
+            }
+            return "Close range mechanics"
         } else {
             return workoutActive ? "Active drill session" : "Ready to start"
         }
@@ -78,31 +93,26 @@ struct iPhoneWorkoutView: View {
                     misses = 0
                     swishes = 0
                     lastReceivedValue = nil
+                    currentPositionIndex = 0
+                    shotsAtCurrentPosition = 0
 
                     connectivity.sendWorkoutStarted()
+                    
+                    // Send drill info to watch
+                    connectivity.sendDrillInfo(selectedDrill)
+                    
+                    // Send initial position to watch
+                    let positions = CourtPositions.positions(for: selectedDrill)
+                    if !positions.isEmpty {
+                        connectivity.sendPositionUpdate(positions[0])
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity)
                 .disabled(workoutActive)
 
                 Button("Stop Workout") {
-                    let endDate = Date()
-
-                    if workoutActive && attempts > 0 {
-                        let session = WorkoutSession(
-                            drill: selectedDrill,
-                            makes: totalMakes,
-                            misses: misses,
-                            swishes: swishes,
-                            attempts: attempts,
-                            startDate: workoutStartDate ?? endDate,
-                            endDate: endDate
-                        )
-                        appData.addSession(session)
-                    }
-
-                    workoutActive = false
-                    connectivity.sendWorkoutStopped()
+                    finishWorkout()
                 }
                 .buttonStyle(.bordered)
                 .frame(maxWidth: .infinity)
@@ -119,6 +129,17 @@ struct iPhoneWorkoutView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                
+                // Debug: Show current position info
+                if workoutActive {
+                    let positions = CourtPositions.positions(for: selectedDrill)
+                    if currentPositionIndex < positions.count {
+                        let currentPos = positions[currentPositionIndex]
+                        Text("Position: \(currentPos.name ?? "Unknown") (\(currentPositionIndex + 1)/\(positions.count))")
+                            .font(.caption2)
+                            .foregroundStyle(.blue)
+                    }
+                }
             }
 
             VStack(spacing: 10) {
@@ -128,17 +149,23 @@ struct iPhoneWorkoutView: View {
 
                 HStack(spacing: 10) {
                     Button("MAKE") {
-                        if workoutActive { makes += 1 }
+                        if workoutActive {
+                            recordManualShot(1)
+                        }
                     }
                     .buttonStyle(.borderedProminent)
 
                     Button("MISS") {
-                        if workoutActive { misses += 1 }
+                        if workoutActive {
+                            recordManualShot(0)
+                        }
                     }
                     .buttonStyle(.bordered)
 
                     Button("SWISH") {
-                        if workoutActive { swishes += 1 }
+                        if workoutActive {
+                            recordManualShot(2)
+                        }
                     }
                     .buttonStyle(.bordered)
                 }
@@ -190,6 +217,50 @@ struct iPhoneWorkoutView: View {
         default:
             break
         }
+        
+        shotsAtCurrentPosition += 1
+        
+        let positions = CourtPositions.positions(for: selectedDrill)
+        
+        // All drills use 5 shots per position
+        if shotsAtCurrentPosition >= shotsPerPosition {
+            shotsAtCurrentPosition = 0
+            currentPositionIndex += 1
+            
+            if currentPositionIndex >= positions.count {
+                // Drill complete
+                finishWorkout()
+            } else {
+                // Send next position
+                connectivity.sendPositionUpdate(positions[currentPositionIndex])
+            }
+        }
+    }
+    
+    private func recordManualShot(_ shotType: Int) {
+        // Apply locally
+        applyWatchValue(shotType)
+        // Send to watch so it updates its shot count
+        connectivity.sendValueToPhone(shotType)
+    }
+    
+    private func finishWorkout() {
+        let endDate = Date()
+        if workoutActive && attempts > 0 {
+            let session = WorkoutSession(
+                drill: selectedDrill,
+                makes: totalMakes,
+                misses: misses,
+                swishes: swishes,
+                attempts: attempts,
+                startDate: workoutStartDate ?? endDate,
+                endDate: endDate
+            )
+            appData.addSession(session)
+        }
+        workoutActive = false
+        // Send stop to watch to trigger summary display
+        connectivity.sendWorkoutStopped()
     }
 
     private func stat(_ title: String, _ value: String) -> some View {

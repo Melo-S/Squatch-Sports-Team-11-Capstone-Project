@@ -17,6 +17,8 @@ enum WorkoutMessage: String, Codable {
     case workoutStarted
     case workoutStopped
     case sendValue
+    case updatePosition
+    case drillInfo
 }
 
 // Connectivity handler for iOS/WatchOS
@@ -24,6 +26,8 @@ class WorkoutConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     static let shared = WorkoutConnectivity()
     @Published var workoutActive: Bool = false
     @Published var receivedValue: Int? = nil
+    @Published var currentPosition: CourtPosition? = nil
+    @Published var currentDrill: String? = nil
 
     private override init() {
         super.init()
@@ -44,6 +48,17 @@ class WorkoutConnectivity: NSObject, ObservableObject, WCSessionDelegate {
     }
     func sendValueToPhone(_ value: Int) {
         sendMessage(["type": WorkoutMessage.sendValue.rawValue, "value": value])
+    }
+    func sendPositionUpdate(_ position: CourtPosition) {
+        if let encoded = try? JSONEncoder().encode(position),
+           let json = try? JSONSerialization.jsonObject(with: encoded) as? [String: Any] {
+            var message = json
+            message["type"] = WorkoutMessage.updatePosition.rawValue
+            sendMessage(message)
+        }
+    }
+    func sendDrillInfo(_ drillName: String) {
+        sendMessage(["type": WorkoutMessage.drillInfo.rawValue, "drillName": drillName])
     }
 
     private func sendMessage(_ dict: [String: Any]) {
@@ -74,9 +89,23 @@ class WorkoutConnectivity: NSObject, ObservableObject, WCSessionDelegate {
                     self.workoutActive = true
                 case .workoutStopped:
                     self.workoutActive = false
+                    self.currentPosition = nil
+                    self.currentDrill = nil
                 case .sendValue:
                     if let value = message["value"] as? Int {
                         self.receivedValue = value
+                    }
+                case .updatePosition:
+                    // Decode position from message
+                    var positionDict = message
+                    positionDict.removeValue(forKey: "type")
+                    if let data = try? JSONSerialization.data(withJSONObject: positionDict),
+                       let position = try? JSONDecoder().decode(CourtPosition.self, from: data) {
+                        self.currentPosition = position
+                    }
+                case .drillInfo:
+                    if let drillName = message["drillName"] as? String {
+                        self.currentDrill = drillName
                     }
                 }
             }

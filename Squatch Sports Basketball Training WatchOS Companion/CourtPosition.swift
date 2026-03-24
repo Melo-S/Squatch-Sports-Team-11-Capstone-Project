@@ -24,25 +24,37 @@ struct CourtPosition: Codable, Equatable {
 }
 
 // Predefined court positions for different drills
+// NOTE: Hoop is at TOP of watch screen (top = 0.0, bottom = 1.0)
+// Three-point arc: center (0.5, 0.12), radius 0.52*width, angles 38° to 142°
 struct CourtPositions {
     
-    // Spot Shooting: 5 spots around the arc
+    // Spot Shooting: 5 positions around the 3-point arc
+    // Polished positions matching actual court geometry
     static let spotShooting: [CourtPosition] = [
-        CourtPosition(row: 0, column: 0, name: "Left Corner", rowPercent: 0.75, columnPercent: 0.15),
-        CourtPosition(row: 0, column: 1, name: "Left Wing", rowPercent: 0.45, columnPercent: 0.25),
-        CourtPosition(row: 0, column: 2, name: "Top of Key", rowPercent: 0.30, columnPercent: 0.50),
-        CourtPosition(row: 0, column: 3, name: "Right Wing", rowPercent: 0.45, columnPercent: 0.75),
-        CourtPosition(row: 0, column: 4, name: "Right Corner", rowPercent: 0.75, columnPercent: 0.85)
+        // Left Corner - where corner 3PT line meets left sideline (moved down from 0.06)
+        CourtPosition(row: 0, column: 0, name: "Left Corner", rowPercent: 0.20, columnPercent: 0.10),
+        
+        // Left Wing - on the arc, moved back slightly from line
+        CourtPosition(row: 0, column: 1, name: "Left Wing", rowPercent: 0.54, columnPercent: 0.27),
+        
+        // Top of Key - top of the arc
+        CourtPosition(row: 0, column: 2, name: "Top of Key", rowPercent: 0.64, columnPercent: 0.50),
+        
+        // Right Wing - on the arc, moved back slightly from line
+        CourtPosition(row: 0, column: 3, name: "Right Wing", rowPercent: 0.54, columnPercent: 0.73),
+        
+        // Right Corner - where corner 3PT line meets right sideline (matched to left)
+        CourtPosition(row: 0, column: 4, name: "Right Corner", rowPercent: 0.20, columnPercent: 0.90)
     ]
     
-    // Free Throws: Single position at the line
+    // Free Throws: Single position at the line (matches court free throw line at 0.37)
     static let freeThrow: [CourtPosition] = [
-        CourtPosition(row: 0, column: 0, name: "Free Throw Line", rowPercent: 0.55, columnPercent: 0.50)
+        CourtPosition(row: 0, column: 0, name: "Free Throw Line", rowPercent: 0.37, columnPercent: 0.50)
     ]
     
-    // Form Shooting: Close to basket
+    // Form Shooting: Close to basket (inside the paint, near hoop)
     static let formShooting: [CourtPosition] = [
-        CourtPosition(row: 0, column: 0, name: "Close Range", rowPercent: 0.70, columnPercent: 0.50)
+        CourtPosition(row: 0, column: 0, name: "Close Range", rowPercent: 0.22, columnPercent: 0.50)
     ]
     
     // Generic/default position
